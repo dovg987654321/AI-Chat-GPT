@@ -1,0 +1,53 @@
+
+name: Piper Russian Voice
+
+on:
+  workflow_dispatch:
+    inputs:
+      text:
+        description: "Text for Russian voice"
+        required: true
+        default: "Привет! Это первая проверка русской озвучки для наших видео."
+
+permissions:
+  contents: read
+
+jobs:
+  voice:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Piper
+        run: |
+          python -m pip install piper-tts
+
+      - name: Download Russian voice
+        run: |
+          python -m piper.download_voices ru_RU-denis-medium
+
+      - name: Generate voice WAV
+        env:
+          VOICE_TEXT: ${{ inputs.text }}
+        run: |
+          python -m piper \
+            -m ru_RU-denis-medium \
+            -f voice.wav \
+            -- "$VOICE_TEXT"
+
+      - name: Check WAV
+        run: |
+          test -s voice.wav
+          file voice.wav
+
+      - name: Save audio
+        uses: actions/upload-artifact@v4
+        with:
+          name: russian-voice
+          path: voice.wav
+          retention-days: 3
