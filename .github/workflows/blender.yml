@@ -1,0 +1,93 @@
+
+name: Blender Animation
+
+on:
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Install Blender and FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y blender ffmpeg
+
+      - name: Create 3D animation
+        run: |
+          cat > scene.py <<'PY'
+          import bpy
+          import math
+
+          bpy.ops.object.select_all(action="SELECT")
+          bpy.ops.object.delete(use_global=False)
+
+          scene = bpy.context.scene
+          scene.render.engine = "BLENDER_EEVEE"
+          scene.render.resolution_x = 480
+          scene.render.resolution_y = 854
+          scene.render.resolution_percentage = 100
+          scene.render.fps = 24
+          scene.frame_start = 1
+          scene.frame_end = 72
+
+          bpy.ops.mesh.primitive_uv_sphere_add(
+              location=(0, 0, 0)
+          )
+          ball = bpy.context.object
+          ball.name = "Animated sphere"
+
+          for frame in range(1, 73):
+              t = (frame - 1) / 71
+              ball.location.x = math.sin(t * math.pi * 2)
+              ball.location.z = 0.5 + abs(math.sin(t * math.pi * 3))
+              ball.keyframe_insert(
+                  data_path="location",
+                  frame=frame
+              )
+
+          bpy.ops.object.camera_add(
+              location=(0, -7, 3)
+          )
+          camera = bpy.context.object
+          camera.rotation_euler = (
+              math.radians(70), 0, 0
+          )
+          camera.data.type = "ORTHO"
+          camera.data.ortho_scale = 5
+          scene.camera = camera
+
+          bpy.ops.object.light_add(
+              type="AREA",
+              location=(1, -3, 5)
+          )
+          bpy.context.object.data.energy = 900
+
+          scene.render.image_settings.file_format = "PNG"
+          scene.render.filepath = "//frames/frame_"
+
+          bpy.ops.wm.save_as_mainfile(
+              filepath="animation.blend"
+          )
+          bpy.ops.render.render(animation=True)
+          PY
+
+          mkdir -p frames
+          blender -b -t 2 --python scene.py
+
+      - name: Export MP4
+        run: |
+          ffmpeg -y -framerate 24 \
+            -i frames/frame_%04d.png \
+            -c:v libx264 -pix_fmt yuv420p \
+            -crf 20 -movflags +faststart \
+            animation.mp4
+
+      - name: Upload video
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender-animation
+          path: animation.mp4
+          retention-days: 3
