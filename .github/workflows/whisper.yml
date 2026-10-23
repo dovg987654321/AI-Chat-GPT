@@ -1,0 +1,74 @@
+
+name: Whisper Subtitles
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  transcribe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Download project files
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake g++ make ffmpeg
+
+      - name: Build Whisper.cpp
+        run: |
+          git clone --depth 1 \
+            https://github.com/ggml-org/whisper.cpp.git \
+            whisper-engine
+
+          cmake -S whisper-engine \
+            -B whisper-engine/build \
+            -DCMAKE_BUILD_TYPE=Release
+
+          cmake --build whisper-engine/build \
+            --config Release -j 2
+
+      - name: Download multilingual model
+        run: |
+          cd whisper-engine
+          sh ./models/download-ggml-model.sh base
+
+      - name: Prepare audio
+        run: |
+          mkdir -p results
+
+          if [ -f input/audio.mp3 ]; then
+            AUDIO="input/audio.mp3"
+          else
+            AUDIO="whisper-engine/samples/jfk.wav"
+            echo "Using demo audio"
+          fi
+
+          ffmpeg -y -i "$AUDIO" \
+            -ar 16000 -ac 1 \
+            -c:a pcm_s16le \
+            results/input.wav
+
+      - name: Generate subtitles
+        run: |
+          whisper-engine/build/bin/whisper-cli \
+            -m whisper-engine/models/ggml-base.bin \
+            -f results/input.wav \
+            -osrt -otxt \
+            -of results/subtitles
+
+      - name: Download results
+        uses: actions/upload-artifact@v4
+        with:
+          name: whisper-subtitles
+          path: |
+            results/subtitles.srt
+            results/subtitles.txt
+          retention-days: 3
