@@ -32,9 +32,9 @@ def landscape(F, t, farm_kw=None, farm_x=1560, farm_y=820, farm_sc=0.75, snow=Tr
 
 # ------------------------------------------------------------ сцены
 def s_tracks(F, t, T):
-    F.push(); cam(F, t, T, 1.0, 1.08, dx=-60)
+    F.push(); cam(F, t, T, 1.0, 1.3, cx=1100, cy=800)
     landscape(F, t, farm_kw=dict(lit=1.0, smoke=0.5))
-    footprints(F, TRACK, seg(t, 0.6, T * 0.85), size=1.2)
+    footprints(F, TRACK, seg(t, 0.3, T * 0.8), size=1.5, tone=0.95)
     F.pop()
     label(F, "OBERBAYERN · MÄRZ 1922", 90, 110, 38, "red", seg(t, 0.2, 0.9))
 
@@ -42,14 +42,11 @@ def s_tracks(F, t, T):
 def s_tracks_back(F, t, T):
     F.push(); cam(F, t, T, 1.08, 1.16, dx=-80)
     landscape(F, t, farm_kw=dict(lit=1.0, smoke=0.5))
-    footprints(F, TRACK, 1.0, size=1.2)
-    back = [(p[0], p[1] - 70) for p in reversed(TRACK)]
-    pr = seg(t, 0.6, T * 0.6)
-    if pr > 0:
-        n = max(2, int(len(back) * pr))
-        F.stroke("red", poly(F, back[:n], False, amp=1.2), 6, dash=[18, 14])
+    footprints(F, TRACK, 1.0, size=1.5, tone=0.95)
+    lx = lerp(1400, 400, ease(seg(t, 0.2, T * 0.7)))
+    F.fill("red", blob(F, lx, 900, 150, 50), tone=0.25)
     F.pop()
-    stamp(F, "KEINE SPUR ZURÜCK", W / 2, 300, 74, -0.06, seg(t, T * 0.55, T * 0.55 + 0.35))
+    stamp(F, "KEINE SPUR ZURÜCK", W / 2, 300, 74, -0.06, seg(t, T * 0.85, T * 0.85 + 0.35))
 
 
 def s_farm_night(F, t, T):
@@ -61,7 +58,7 @@ def s_farm_night(F, t, T):
     if p6 > 0:
         stamp(F, "6", 330, 330, 210, -0.05, p6)
         label(F, "TOTE", 330, 530, 48, "red", seg(t, 1.4, 1.8), "center")
-    typed(F, ["Jemand bleibt.", "Tagelang."], 1250, 200, 58, prog=seg(t, T * 0.45, T * 0.75), knock=True)
+    typed(F, ["Jemand bleibt dort.", "Tagelang."], 1250, 200, 58, prog=seg(t, T * 0.45, T * 0.75), knock=True)
 
 
 def s_title(F, t, T):
@@ -71,7 +68,7 @@ def s_title(F, t, T):
     stamp(F, "AKTE 41", W / 2, 330, 150, -0.05, seg(t, 0.2, 0.55))
     if t > 0.9:
         big_text(F, "HINTERKAIFECK", W / 2, 640, 150, knock=True)
-    typed(F, ["1922 · SECHS TOTE · UNGELÖST"], W / 2, 770, 46, prog=seg(t, 1.6, 3.0), knock=True, align="center")
+    typed(F, ["1922 · SECHS TOTE · NAME GESCHWÄRZT"], W / 2, 770, 46, prog=seg(t, 1.6, 3.0), knock=True, align="center")
     if t > T * 0.55:
         items = ["AKTEN", "GERÜCHTE", "VERDÄCHTIGE"]
         for i, s in enumerate(items):
@@ -274,10 +271,10 @@ def s_neighbors(F, t, T):
     F.pop()
     if t > 0.5:
         card(F, 1330, 300, 640, 150, 0.03)
-        typed(F, ["„Wir suchen den Wald ab.“"], 1330, 315, 40, prog=seg(t, 0.6, 2.2), align="center")
+        typed(F, ["Angebot: Wald absuchen"], 1330, 315, 40, prog=seg(t, 0.6, 2.2), align="center")
     if t > T * 0.35:
         card(F, 560, 470, 600, 150, -0.03)
-        typed(F, ["„Nein. Ich hab ein Gewehr.“"], 560, 485, 38, prog=seg(t, T * 0.35, T * 0.6), align="center", ink="red")
+        typed(F, ["Gruber: abgelehnt"], 560, 485, 38, prog=seg(t, T * 0.35, T * 0.6), align="center", ink="red")
     stamp(F, "KEINE POLIZEI", W / 2, 150, 70, -0.05, seg(t, T * 0.78, T * 0.86))
 
 
@@ -414,8 +411,6 @@ def s_mechanic(F, t, T):
     F.knock(circle(F, 0, 0, 22))
     F.pop()
     figure(F, 1520, 920, 1.2, "man", facing=-1, phase=None)
-    if int(t * 2) % 3 == 0 and t > 1.0:
-        F.fill("red", textpath(F, "WAU!", 820, 640, 54, True))
     # глаза в тёмном окне
     if t > T * 0.75:
         e = 1.0 if int(t * 3) % 5 else 0.0
@@ -491,7 +486,7 @@ def s_munich(F, t, T):
     F.pop()
     if t > T * 0.35:
         label(F, "Hoffnung: Hellseher", W / 2, 260, 46, "grey", seg(t, T * 0.35, T * 0.45), "center")
-    stamp(F, "VERSCHOLLEN SEIT DEM KRIEG", W / 2, 900, 58, -0.04, seg(t, T * 0.72, T * 0.8))
+    stamp(F, "SCHÄDEL: VERSCHOLLEN", W / 2, 900, 58, -0.04, seg(t, T * 0.72, T * 0.8))
 
 
 BOARD = [("Lorenz", "Schlittenbauer", 430, 330), ("Karl", "Gabriel", 1490, 330), ("Adolf & Anton", "Gump", 960, 830)]
@@ -559,8 +554,8 @@ def s_suspect1b(F, t, T):
 
 
 def s_suspect2(F, t, T):
-    zoom_card(F, t, T, 1, ["SPUR 2: DER EHEMANN", "", "gilt als gefallen, 1914", "Leiche nie gefunden", "",
-                          "Jahre später:", "„in Russland gesehen“"], "NICHT BEWIESEN", 0.85)
+    zoom_card(F, t, T, 1, ["SPUR 2: DER EHEMANN", "", "gefallen 12/1914 (Kameraden)", "kein eigenes Grab", "",
+                          "nach 1945:", "„in Russland gesehen“"], "NICHT BEWIESEN", 0.85)
 
 
 def s_suspect3(F, t, T):
@@ -598,7 +593,7 @@ def s_students(F, t, T):
     for k in range(5):
         F.paint("grey", rect(F, 520 + k * 8, 260 - k * 10, 880, 620), tone=0.15 + 0.05 * k, outline="navy", ow=4)
     card(F, 960, 560, 880, 620, 0.0, fill_tone=0.0)
-    typed(F, ["POLIZEIHOCHSCHULE FÜRSTENFELDBRUCK", "Neubewertung, 2007", "", "Hauptverdächtiger:"], 560, 340, 36,
+    typed(F, ["FH FÜRSTENFELDBRUCK · FB POLIZEI", "Neubewertung, 2007", "", "Hauptverdächtiger:"], 560, 340, 36,
           prog=seg(t, 0.6, T * 0.6))
     pb = seg(t, T * 0.62, T * 0.72)
     if pb > 0:
@@ -619,7 +614,7 @@ def s_memorial(F, t, T):
     F.pop()
     label(F, "Marterl bei Gröbern", 90, 110, 38, "navy", seg(t, 0.5, 1.2))
     if t > T * 0.6:
-        label(F, "Friedhof Waidhofen", 90, 210, 38, "grey", seg(t, T * 0.6, T * 0.7))
+        label(F, "Gräber: Friedhof Waidhofen", 90, 210, 38, "grey", seg(t, T * 0.6, T * 0.7))
 
 
 def s_ending(F, t, T):
@@ -639,7 +634,7 @@ def s_outro(F, t, T):
     label(F, "Deine Version → Kommentare", W / 2, 560, 40, "red", seg(t, 1.5, 2.2), "center")
     if t > T * 0.55:
         card(F, W / 2, 830, 780, 260, -0.02, fill_tone=0.0)
-        F.fill("navy", textpath(F, "Das Phantom von Heilbronn", W / 2, 830, 52, True, "center"))
+        F.fill("navy", textpath(F, "Die Frau, die es nie gab", W / 2, 850, 52, True, "center"))
         stamp(F, "NÄCHSTE AKTE", W / 2 + 260, 720, 40, 0.08, seg(t, T * 0.6, T * 0.68))
     if t > T - 1.2:
         F.fill("navy", rect(F, -20, -20, W + 40, H + 40, amp=0), tone=clamp((t - (T - 1.2)) / 1.2))

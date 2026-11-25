@@ -98,7 +98,7 @@ def music(total, tl, path):
     out += 0.35 * wind
     # удары на сменах сцен
     for i, s in enumerate(tl):
-        if i and s["scene"] != tl[i - 1]["scene"]:
+        if i and s["scene"] != tl[i - 1]["scene"] and s["scene"] in WIPE_SCENES | {"farm_night", "barn", "discovery", "munich", "memorial"}:
             st = int(s["start"] * SR)
             L = int(2.2 * SR)
             if st + L < n:
