@@ -53,12 +53,18 @@ if LOOK == "diorama":
     MOON_E, MOON_C = 1.6, srgb("#b9c8ff")
     SKY_TOP, SKY_HOR = srgb("#0b1330"), srgb("#2a3658")
     WIN_E = 9.0
+elif LOOK == "day":
+    FOG_COL, FOG_D = srgb("#8c96a6"), 0.016
+    MOON_E, MOON_C = 1.6, srgb("#e6ecf5")
+    SKY_TOP, SKY_HOR = srgb("#5d6878"), srgb("#9aa4b3")
+    WIN_E = 0.0
 else:
     FOG_COL, FOG_D = srgb("#18223a"), 0.022
     MOON_E, MOON_C = 2.2, srgb("#9fb4ff")
     SKY_TOP, SKY_HOR = srgb("#03060f"), srgb("#1b2438")
     WIN_E = 7.0
-WIN_L = 160 if LOOK == "film" else 220
+WIN_L = {"film": 160, "day": 0}.get(LOOK, 220)
+SKY_CAM = srgb("#9aa3b1") if LOOK == "day" else srgb("#1c2640")
 SIL_T = (4.4, 6.4)
 
 # ------------------------------------------------------------------ материалы
@@ -507,14 +513,14 @@ def build_world():
     lp = N.new("ShaderNodeLightPath")
     mix = N.new("ShaderNodeMix"); mix.data_type = "RGBA"
     L.new(lp.outputs["Is Camera Ray"], mix.inputs["Factor"])
-    mix.inputs[6].default_value = (*srgb("#1c2640"), 1)
+    mix.inputs[6].default_value = (*SKY_CAM, 1)
     if DIO:
         ramp.color_ramp.elements[0].color = (*srgb("#0d0b0a"), 1); ramp.color_ramp.elements[1].color = (*srgb("#050404"), 1)
     L.new(ramp.outputs["Color"], mix.inputs[7])
     L.new(mix.outputs[2], bg.inputs["Color"])
-    bg.inputs["Strength"].default_value = 0.55 if LOOK == "film" else 0.8
+    bg.inputs["Strength"].default_value = {"film": 0.55, "day": 1.6}.get(LOOK, 0.8)
     moon = bpy.data.lights.new("moon", "SUN"); moon.energy = MOON_E; moon.color = MOON_C
-    moon.angle = math.radians(1.2)
+    moon.angle = math.radians(25 if LOOK == "day" else 1.2)
     mo = link(bpy.data.objects.new("moon", moon))
     mo.rotation_euler = (math.radians(62), 0, math.radians(150))
 
@@ -594,5 +600,229 @@ def main():
     tp = os.path.join(OUT, f"track_{F0}_{F1}.json")
     json.dump(track, open(tp, "w"))
 
+# ------------------------------------------------------------------ люди (силуэты без лиц)
+FIG_M = {}
+def fig_mats():
+    if not FIG_M:
+        FIG_M["coat"] = mat("coat", srgb("#1b1a1c"), 0.85, bump=0.3, bump_scale=30)
+        FIG_M["coat2"] = mat("coat2", srgb("#2a2420"), 0.85, bump=0.3, bump_scale=30)
+        FIG_M["skin"] = mat("skinf", srgb("#6b5244"), 0.6)
+        FIG_M["lamp"] = mat("lampf", srgb("#ffc070"), 0.3, emit=srgb("#ffa040"), emit_s=25.0, fog=False)
+        FIG_M["metal"] = mat("metalf", srgb("#151515"), 0.4)
+    return FIG_M
+
+def _cyl(name, r1, r2, h_, loc, m, rot=(0, 0, 0), n=16):
+    bpy.ops.mesh.primitive_cone_add(vertices=n, radius1=r1, radius2=r2, depth=h_, location=loc, rotation=rot)
+    o = bpy.context.active_object; o.name = name; o.data.materials.append(m)
+    for pg in o.data.polygons: pg.use_smooth = True
+    return o
+
+def _sph(name, r, loc, m, sc=(1, 1, 1)):
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=r, location=loc, segments=20, ring_count=12)
+    o = bpy.context.active_object; o.name = name; o.scale = sc; o.data.materials.append(m)
+    for pg in o.data.polygons: pg.use_smooth = True
+    return o
+
+def person(x, y, face=0.0, kind="man", sc=1.0, lantern=False, gun=False, case=False, arm_up=0.0, z=None, beard=False):
+    """Человек 1920-х без лица: пальто/юбка с фартуком, шляпа или платок. face — поворот (рад, 0 = лицом к -Y)."""
+    M_ = fig_mats()
+    if "skirt" not in M_:
+        M_["skirt"] = mat("skirt", srgb("#3a2522"), 0.9, bump=0.3, bump_scale=40)
+        M_["apron"] = mat("apron", srgb("#6e675a"), 0.9, bump=0.3, bump_scale=60)
+        M_["scarf"] = mat("scarf", srgb("#2c2830"), 0.9, bump=0.3, bump_scale=50)
+        M_["boot"] = mat("boot", srgb("#0e0d0d"), 0.5)
+        M_["trench"] = mat("trench", srgb("#4a4236"), 0.8, bump=0.3, bump_scale=30)
+        M_["hair"] = mat("hairf", srgb("#2a1e16"), 0.7)
+    root = link(bpy.data.objects.new("person", None))
+    P_ = []
+    child = kind in ("girl", "boy", "child")
+    k = (1.15 if kind != "boy" else 0.9) / 1.75 if child else 1.0
+    fem = kind in ("woman", "maid", "old_woman", "girl")
+    coat = {"investigator": M_["trench"], "woman": M_["coat2"], "maid": M_["coat2"], "old_woman": M_["coat"]}.get(kind, M_["coat"])
+    def C(n, r1, r2, h_, zc, m, xy=(0, 0), rot=(0, 0, 0), nv=20):
+        P_.append(_cyl(n, r1 * k, r2 * k, h_ * k, (xy[0] * k, xy[1] * k, zc * k), m, rot=rot, n=nv)); return P_[-1]
+    def Sp(n, r, loc, m, scl=(1, 1, 1)):
+        P_.append(_sph(n, r * k, (loc[0] * k, loc[1] * k, loc[2] * k), m, scl)); return P_[-1]
+    if fem:
+        C("skirt", 0.34, 0.17, 0.92, 0.5, M_["skirt"], nv=28)
+        C("bodice", 0.17, 0.19, 0.42, 1.15, coat)
+        ap = C("apron", 0.35, 0.175, 0.78, 0.5, M_["apron"], xy=(0, -0.02), nv=28)
+        ap.scale = (0.55, 1.0, 1.0)
+        Sp("shawl", 0.24, (0, 0, 1.33), M_["scarf"], (1.05, 0.8, 0.45))
+        for sx in (-1, 1): C("boot", 0.05, 0.05, 0.08, 0.04, M_["boot"], xy=(sx * 0.08, -0.05))
+    else:
+        for sx in (-1, 1):
+            C("leg", 0.075, 0.065, 0.55, 0.32, M_["coat"], xy=(sx * 0.1, 0))
+            C("boot", 0.075, 0.08, 0.14, 0.07, M_["boot"], xy=(sx * 0.1, -0.02))
+        ln = 1.0 if kind == "investigator" else 0.78
+        C("coat", 0.28, 0.21, ln, 1.38 - ln / 2, coat, nv=24)
+        Sp("shoulders", 0.22, (0, 0, 1.36), coat, (1.12, 0.72, 0.45))
+        C("collar", 0.11, 0.09, 0.08, 1.45, coat)
+    C("neck", 0.05, 0.05, 0.1, 1.47, M_["skin"])
+    head = Sp("head", 0.105, (0, 0, 1.6), M_["skin"], (0.88, 0.95, 1.12))
+    Sp("nose", 0.018, (0, -0.095, 1.6), M_["skin"], (0.8, 1.0, 1.4))
+    if fem:
+        Sp("kopftuch", 0.118, (0, 0.04, 1.635), M_["scarf"], (0.98, 0.95, 1.02))
+        Sp("knot", 0.035, (0, 0.11, 1.53), M_["scarf"])
+    elif kind != "boy":
+        C("brim", 0.18, 0.18, 0.012, 1.69, M_["coat"], nv=28)
+        C("crown", 0.105, 0.085, 0.12, 1.755, M_["coat"])
+        C("band", 0.107, 0.107, 0.025, 1.71, M_["boot"])
+    else:
+        Sp("hair", 0.11, (0, 0.01, 1.63), M_["hair"], (0.92, 1.0, 0.9))
+    if beard or kind == "old":
+        Sp("beard", 0.07, (0, -0.06, 1.52), M_["hair"], (1.1, 0.8, 1.1))
+    for sx in (-1, 1):
+        up = arm_up if sx > 0 else 0.0
+        C("arm", 0.06, 0.048, 0.62, 1.06, coat, xy=(sx * 0.255, 0), rot=(-up, sx * 0.1, 0))
+        Sp("hand", 0.042, (sx * 0.29, -0.02 - 0.5 * math.sin(up), 0.74 + 0.3 * (1 - math.cos(up))), M_["skin"])
+    if lantern:
+        P_.append(_cyl("lantern", 0.06, 0.055, 0.17, (0.3 * k, -0.06, 0.62 * k), M_["lamp"]))
+        P_.append(_cyl("lanterncap", 0.07, 0.02, 0.06, (0.3 * k, -0.06, 0.73 * k), M_["metal"]))
+        L = bpy.data.lights.new("lan", "POINT"); L.energy = 35; L.color = srgb("#ffa850"); L.shadow_soft_size = 0.05
+        lo = link(bpy.data.objects.new("lan", L)); lo.location = (0.3 * k, -0.16, 0.64 * k); P_.append(lo)
+    if gun:
+        P_.append(_cyl("gun", 0.018, 0.022, 1.15, (-0.2, -0.08, 1.15), M_["metal"], rot=(0.15, -0.25, 0)))
+    if case:
+        bpy.ops.mesh.primitive_cube_add(size=1, location=(-0.36 * k, -0.02, 0.55 * k))
+        c = bpy.context.active_object; c.scale = (0.1, 0.42, 0.3); c.data.materials.append(M_["boot"]); P_.append(c)
+    for o in P_: o.parent = root
+    root.location = (x, y, h(x, y) if z is None else z)
+    root.rotation_euler = (0, 0, face)
+    root.scale = (sc, sc, sc)
+    return root
+
+LINEUP = [("Andreas Gruber", dict(kind="man", beard=True)), ("Cäzilia Gruber", dict(kind="old_woman")),
+          ("Viktoria Gabriel", dict(kind="woman")), ("Cäzilia, 7", dict(kind="girl")), ("Josef, 2", dict(kind="boy", sc=0.9)),
+          ("Maria Baumgartner", dict(kind="maid", case=True)), ("Lorenz Schlittenbauer", dict(kind="man", lantern=True)),
+          ("Ermittler", dict(kind="investigator"))]
+
+def render_lineup():
+    setup_render(); build_world()
+    build_ground(); farm = build_farm(); build_trees(); build_fence()
+    cam, cd, foc, tgt = build_camera()
+    S.render.resolution_x, S.render.resolution_y = 2400, 1350
+    farm["sil"].location.x = -999
+    X0, Y0 = -6.0, 10.5
+    pos = []
+    for i, (n, kw) in enumerate(LINEUP):
+        x = X0 + i * 1.05; y = Y0
+        person(x, y, face=-0.15, **kw); pos.append(Vector((x, y, h(x, y))))
+    # мягкий ключевой свет «из фонаря» спереди-слева и холодный контур сзади
+    for nm, e, c, loc, sz in [("key", 260, "#ffb070", (X0 + 1.5, Y0 - 5.0, 2.6), 3.0), ("rim", 420, "#8fa8ff", (X0 + 4, Y0 + 4.0, 3.2), 4.0)]:
+        L = bpy.data.lights.new(nm, "AREA"); L.energy = e; L.size = sz; L.color = srgb(c)
+        lo = link(bpy.data.objects.new(nm, L)); lo.location = loc
+        d = Vector((X0 + 3.7, Y0, 1.0)) - lo.location; lo.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
+    mid = Vector((X0 + 3.7, Y0, h(X0 + 3.7, Y0) + 0.95))
+    os.makedirs(os.path.join(OUT, "plates"), exist_ok=True)
+    for nm, cl, lens, f in [("lineup", Vector((X0 + 3.7, Y0 - 11.0, mid.z + 0.25)), 40, 5.6),
+                            ("lineup_low", Vector((X0 - 0.5, Y0 - 5.5, mid.z - 0.45)), 30, 2.8)]:
+        cam.location = cl; tgt.location = mid; cd.lens = lens; cd.dof.aperture_fstop = f; foc.location = mid
+        bpy.context.view_layer.update()
+        meta = {"names": [[n, world_to_camera_view(S, cam, p).x, 1 - world_to_camera_view(S, cam, p).y] for (n, _), p in zip(LINEUP, pos)]}
+        S.render.filepath = os.path.join(OUT, "plates", nm + ".png")
+        bpy.ops.render.render(write_still=True)
+        json.dump(meta, open(os.path.join(OUT, "plates", nm + ".json"), "w"))
+
+def build_marterl(x, y):
+    """Marterl: деревянный столб с крестом и козырьком."""
+    z = h(x, y)
+    box("m_post", 0.14, 0.14, 1.9, (x, y, z + 0.95), M["post"])
+    box("m_cross_h", 0.62, 0.12, 0.1, (x, y, z + 1.5), M["post"])
+    box("m_plaque", 0.3, 0.03, 0.36, (x, y - 0.08, z + 1.1), M["frame"])
+    vs = [(-0.32, -0.25, 1.92), (0.32, -0.25, 1.92), (0.32, 0.25, 1.92), (-0.32, 0.25, 1.92), (0, -0.25, 2.12), (0, 0.25, 2.12)]
+    mesh_from("m_roof", [(x + a, y + b, z + c) for a, b, c in vs], [(0, 4, 5, 3), (1, 2, 5, 4), (0, 1, 4), (3, 5, 2)], M["roof"], smooth=False)
+
+# ------------------------------------------------------------------ статичные планы (plates) для серии
+def plate_defs(farm):
+    hx, hy, gz = HOUSE["x"], HOUSE["y"], farm["gz"]; fy = hy - 5.5
+    def P(s, side=0.45, up=1.4):
+        (x, y), _ = path_pt(s); return Vector((x + side, y - 0.2, h(x, y) + up))
+    def G(s, up=0.0):
+        (x, y), _ = path_pt(s); return Vector((x, y, h(x, y) + up))
+    win = farm["window"]
+    return {
+        "tracks_low": dict(cam=P(10.5, 0.4, 0.8), tgt=Vector((hx - 0.8, fy, gz + 2.2)), lens=30, f=2.2, focus=G(12.0)),
+        "tracks_back": dict(cam=P(19.0, 0.5, 1.5), tgt=G(1.0, 1.2), lens=30, f=3.0, focus=G(15.5)),
+        "farm_wide": dict(cam=P(10.0, 0.6, 1.5), tgt=Vector((hx + 1.5, fy, gz + 2.8)), lens=32, f=4.0, focus=win),
+        "farm_window": dict(cam=Vector((hx - 0.6, fy - 8.5, gz + 1.7)), tgt=win + Vector((0.3, 0, 0.1)), lens=55, f=2.8, focus=win),
+        "farm_far": dict(cam=Vector((-24.0, -16.0, h(-24, -16) + 3.0)), tgt=Vector((7.0, 26.0, 2.5)), lens=42, f=5.6, focus=win),
+        "house_dark": dict(cam=P(10.0, 0.6, 1.5), tgt=Vector((hx + 1.5, fy, gz + 2.8)), lens=32, f=4.0, focus=win, dark=True),
+        "neighbors": dict(cam=Vector((hx - 9.0, fy - 6.5, gz + 1.6)), tgt=Vector((hx - 3.0, fy - 2.4, gz + 1.5)), lens=40, f=2.8,
+                          focus=Vector((hx - 3.0, fy - 2.4, gz + 1.4)),
+                          people=[dict(x=hx - 3.4, y=fy - 2.6, face=-1.9, kind="man"), dict(x=hx - 2.2, y=fy - 3.4, face=1.0, kind="old")]),
+        "maid_arrives": dict(cam=P(2.0, 1.6, 1.7), tgt=Vector((hx - 0.5, fy - 3, gz + 1.6)), lens=40, f=4.0, focus=G(9.0, 1.0),
+                             people=[dict(x=G(9.0)[0] - 0.4, y=G(9.0)[1], face=math.pi - 0.3, kind="maid", case=True),
+                                     dict(x=G(9.0)[0] + 0.5, y=G(9.0)[1] - 0.6, face=math.pi - 0.3, kind="woman")]),
+        "days": dict(cam=Vector((-8.0, -1.0, h(-8, -1) + 2.0)), tgt=Vector((hx + 3, hy, gz + 2.0)), lens=38, f=5.6, focus=win),
+        "mechanic": dict(cam=Vector((hx + 6.0, fy - 9.0, gz + 1.6)), tgt=Vector((hx + 8.0, fy + 1.0, gz + 1.8)), lens=36, f=4.0,
+                         focus=Vector((hx + 8.5, fy - 0.2, gz + 1.0)),
+                         people=[dict(x=hx + 8.5, y=fy - 0.3, face=math.pi + 0.4, kind="man")]),
+        "crime_scene": dict(cam=Vector((hx - 10.0, fy - 14.0, gz + 3.2)), tgt=Vector((hx + 4.0, fy, gz + 1.5)), lens=35, f=5.6,
+                            focus=Vector((hx + 2.0, fy - 3, gz + 1.0)), crowd=16),
+        "memorial": dict(cam=Vector((hx - 5.5, fy - 3.0, gz + 0.9)), tgt=Vector((hx - 1.0, fy + 2.0, gz + 1.4)), lens=45, f=2.4,
+                         focus=Vector((hx - 1.0, fy + 2.0, gz + 1.4)), memorial=True),
+        "discovery": dict(cam=Vector((hx + 2.0, fy - 10.0, gz + 1.5)), tgt=Vector((hx + 10.0, fy + 0.5, gz + 1.6)), lens=34, f=3.2,
+                          focus=Vector((hx + 10.0, fy - 1.0, gz + 1.2)),
+                          people=[dict(x=hx + 9.0, y=fy - 1.2, face=2.6, kind="man", lantern=True),
+                                  dict(x=hx + 10.4, y=fy - 1.8, face=3.3, kind="man", lantern=True),
+                                  dict(x=hx + 11.4, y=fy - 0.9, face=3.6, kind="old")]),
+        "chimney": dict(cam=Vector((hx - 6.0, fy - 7.0, gz + 2.0)), tgt=farm["chimney_top"] + Vector((0, 0, -0.8)), lens=45, f=4.0, focus=farm["chimney_top"]),
+    }
+
+def render_plates(names, res=(2400, 1350), samples=20):
+    setup_render(); build_world()
+    build_ground(); farm = build_farm(); build_trees(); build_fence()
+    cam, cd, foc, tgt = build_camera()
+    S.render.resolution_x, S.render.resolution_y = res
+    S.cycles.samples = samples
+    farm["sil"].location.x = -999          # тень в окне рисуем в посте
+    farm["L1"].energy = WIN_L
+    os.makedirs(os.path.join(OUT, "plates"), exist_ok=True)
+    defs = plate_defs(farm)
+    hy = HOUSE["y"]; fy = hy - 5.5; wx = HOUSE["x"] - 2.3; WZ = farm["window"].z
+    corners = [Vector((wx - 0.45, fy - 0.03, WZ + 0.5)), Vector((wx + 0.45, fy - 0.03, WZ + 0.5)),
+               Vector((wx + 0.45, fy - 0.03, WZ - 0.5)), Vector((wx - 0.45, fy - 0.03, WZ - 0.5))]
+    meta = {}
+    farm_objs = [o for o in S.objects if o.name.split(".")[0] in ("house", "house_roof", "house_roof_snow", "plinth", "gable_front",
+                 "barn", "barn_roof", "barn_roof_snow", "barn_door", "barn_door2", "door", "step", "chimney", "post", "rail")
+                 or o.name.startswith(("win", "wf_", "shut"))]
+    for n in names:
+        d = defs[n]
+        extra = []
+        for pp in d.get("people", []):
+            extra.append(person(**pp))
+        if d.get("crowd"):
+            r2 = random.Random(7)
+            for i in range(d["crowd"]):
+                x = HOUSE["x"] + r2.uniform(-6, 12); y = hy - 5.5 - r2.uniform(1.5, 9)
+                extra.append(person(x, y, r2.uniform(0, 6.3), r2.choice(["man", "man", "old", "woman"]), sc=r2.uniform(0.95, 1.05)))
+        if d.get("memorial"):
+            for o in farm_objs: o.hide_render = True
+            build_marterl(HOUSE["x"] - 1.0, hy - 3.5)
+        glass = M["glassl"].node_tree.nodes["Principled BSDF"]
+        if d.get("dark") or LOOK == "day":
+            farm["L1"].energy = 0
+            for lk in list(glass.inputs["Emission Strength"].links): M["glassl"].node_tree.links.remove(lk)
+            glass.inputs["Emission Strength"].default_value = 0.0
+            glass.inputs["Base Color"].default_value = (0.01, 0.012, 0.016, 1)
+        cam.location = d["cam"]; tgt.location = d["tgt"]; cd.lens = d["lens"]
+        cd.dof.aperture_fstop = d["f"]; foc.location = d["focus"]
+        bpy.context.view_layer.update()
+        def scr(v):
+            p = world_to_camera_view(S, cam, v); return [p.x, 1 - p.y]
+        meta[n] = dict(window=[scr(c) for c in corners], chimney=scr(farm["chimney_top"]))
+        S.render.filepath = os.path.join(OUT, "plates", n + ".png")
+        bpy.ops.render.render(write_still=True)
+        json.dump(meta[n], open(os.path.join(OUT, "plates", n + ".json"), "w"))
+        for e in extra:
+            for c in list(e.children_recursive) + [e]:
+                bpy.data.objects.remove(c, do_unlink=True)
+
 if __name__ == "__main__":
-    main()
+    if "--lineup" in args:
+        render_lineup()
+    elif "--plates" in args:
+        render_plates(opt("--plates", "").split(","), samples=SAMPLES)
+    else:
+        main()
