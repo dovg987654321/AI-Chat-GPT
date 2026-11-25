@@ -55,7 +55,7 @@ def render_chunk(args):
     from props import red_wipe
     ff = subprocess.Popen(["ffmpeg", "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
                            "-s", f"{riso.W}x{riso.H}", "-r", str(DRAW_FPS), "-i", "-",
-                           "-vf", "fps=24", "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-maxrate", "12M", "-bufsize", "24M",
+                           "-vf", "fps=24", "-c:v", "libx264", "-preset", "medium", "-crf", "21", "-maxrate", "7M", "-bufsize", "14M",
                            "-pix_fmt", "yuv420p", path], stdin=subprocess.PIPE)
     prev = None
     for fno in range(f0, f1):
