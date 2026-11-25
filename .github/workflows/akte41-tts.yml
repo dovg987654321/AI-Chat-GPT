@@ -1,0 +1,53 @@
+name: Akte 41 TTS
+
+on:
+  push:
+    branches: [claude/project-thread-kkaoj4]
+    paths: ["akte41/**/segments.json", ".github/workflows/akte41-tts.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install edge-tts
+      - name: Synthesize segments
+        run: |
+          python - <<'PY'
+          import json, glob, os, asyncio, edge_tts
+          VOICE = os.environ.get("VOICE", "de-DE-ConradNeural")
+          async def one(text, out, voice, rate):
+              for attempt in range(4):
+                  try:
+                      await edge_tts.Communicate(text, voice, rate=rate, pitch="-2Hz").save(out)
+                      if os.path.getsize(out) > 1000: return
+                  except Exception as e:
+                      print("retry", out, e)
+                  await asyncio.sleep(3)
+              raise SystemExit("failed " + out)
+          async def main():
+              for seg in glob.glob("akte41/*/segments.json"):
+                  d = os.path.join(os.path.dirname(seg), "audio")
+                  os.makedirs(d, exist_ok=True)
+                  for s in json.load(open(seg)):
+                      await one(s["text"], f"{d}/{s['id']}.mp3", VOICE, "-6%")
+                  first = json.load(open(seg))[0]["text"]
+                  for v in ["de-DE-FlorianMultilingualNeural", "de-DE-KillianNeural"]:
+                      await one(first, f"{d}/_sample_{v}.mp3", v, "-6%")
+          asyncio.run(main())
+          PY
+          ls -la akte41/*/audio
+      - name: Commit audio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add akte41/*/audio
+          git commit -m "Akte 41: TTS audio" || exit 0
+          git push
