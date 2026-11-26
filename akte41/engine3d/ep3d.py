@@ -188,9 +188,17 @@ def draw_spaced(d, xy, txt, f, fill, sp=0, anchor="ls"):
     for ch in txt:
         d.text((x, y), ch, font=f, fill=fill, anchor="l" + anchor[1]); x += f.getlength(ch) + sp
 
+_CAP = None   # отложенные нижние подписи кадра: рисуется только последняя начавшаяся (без наложений)
+
 def caption(img, lines, t, at, x=150, y=None, size=34, col=(236, 232, 224), cps=26, hold=None):
     """Машинописная подпись: печатается по буквам, с курсором."""
     if t < at: return img
+    if y is None and _CAP is not None:
+        _CAP.append((at, (lines, t, at, x, y, size, col, cps, hold)))
+        return img
+    return _caption(img, lines, t, at, x, y, size, col, cps, hold)
+
+def _caption(img, lines, t, at, x=150, y=None, size=34, col=(236, 232, 224), cps=26, hold=None):
     if hold is not None and t > at + hold:
         a = 1 - seg(t, at + hold, at + hold + 0.5)
         if a <= 0: return img
@@ -649,7 +657,12 @@ def frame(tl, tt, fno):
         j -= 1
     s0 = tl[j]; T = seg_["end"] - s0["start"]; t = tt - s0["start"]
     fn = SC.get(seg_["scene"], s_missing)
+    global _CAP
+    _CAP = []
     img, o = fn(t, T, seg_["id"], tt)
+    caps, _CAP = _CAP, None
+    if caps:
+        img = _caption(img, *max(caps, key=lambda c: c[0])[1])
     a = np.asarray(img, np.float32) / 255
     sn = o.get("snow", 0)
     if sn: a = a + snow(tt, sn)[..., None] * 0.55

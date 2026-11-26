@@ -706,7 +706,7 @@ def plate_defs(farm):
         "tracks_back": dict(cam=P(19.0, 0.5, 1.5), tgt=G(1.0, 1.2), lens=30, f=3.0, focus=G(15.5)),
         "farm_wide": dict(cam=P(10.0, 0.6, 1.5), tgt=Vector((hx + 1.5, fy, gz + 2.8)), lens=32, f=4.0, focus=win),
         "farm_window": dict(cam=Vector((hx - 0.6, fy - 8.5, gz + 1.7)), tgt=win + Vector((0.3, 0, 0.1)), lens=55, f=2.8, focus=win),
-        "farm_far": dict(cam=Vector((-24.0, -16.0, h(-24, -16) + 3.0)), tgt=Vector((7.0, 26.0, 2.5)), lens=42, f=5.6, focus=win),
+        "farm_far": dict(cam=Vector((-8.0, -6.0, h(-8, -6) + 3.2)), tgt=Vector((4.5, 24.0, 2.0)), lens=36, f=5.6, focus=win),
         "house_dark": dict(cam=P(10.0, 0.6, 1.5), tgt=Vector((hx + 1.5, fy, gz + 2.8)), lens=32, f=4.0, focus=win, dark=True),
         "neighbors": dict(cam=Vector((hx - 9.0, fy - 6.5, gz + 1.6)), tgt=Vector((hx - 3.0, fy - 2.4, gz + 1.5)), lens=40, f=2.8,
                           focus=Vector((hx - 3.0, fy - 2.4, gz + 1.4)),
