@@ -27,7 +27,7 @@ import render_ep as RE
 sys.argv = _argv
 
 W, H, FPS = 1920, 1080, 24
-BAR = int(round((H - W / 2.39) / 2))          # 138 px — кашетирование
+BAR = int(round((H - W / 2.0) / 2))           # 60 px — узкое кашетирование 2:1 (было 2.39:1, 138 px)
 PIC_T, PIC_B = BAR, H - BAR
 F_MONO = "/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-Regular.ttf"
 F_MONO_B = "/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-Bold.ttf"
