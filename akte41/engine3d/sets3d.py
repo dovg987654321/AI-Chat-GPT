@@ -70,7 +70,7 @@ def wood_mat(name, c1, c2, rough=0.55, scale=(1, 14, 1)):
     p.inputs["Roughness"].default_value = rough
     tc = N.new("ShaderNodeTexCoord"); mp_ = N.new("ShaderNodeMapping"); mp_.inputs["Scale"].default_value = scale
     nz = N.new("ShaderNodeTexWave"); nz.wave_type = "BANDS"; nz.inputs["Scale"].default_value = 3.0
-    nz.inputs["Distortion"].default_value = 9.0; nz.inputs["Detail"].default_value = 6
+    nz.inputs["Distortion"].default_value = 1.6; nz.inputs["Detail"].default_value = 4; nz.inputs["Detail Scale"].default_value = 1.4
     L.new(tc.outputs["Object"], mp_.inputs["Vector"]); L.new(mp_.outputs["Vector"], nz.inputs["Vector"])
     r = N.new("ShaderNodeValToRGB")
     r.color_ramp.elements[0].color = (*c2, 1); r.color_ramp.elements[1].color = (*c1, 1)
@@ -322,30 +322,12 @@ def tex_board_card(name, sub, kind, seed):
     return save(im, "bc_" + name.split()[0].lower())
 
 # ================================================================ люди
-def person(x, y, z, face=0.0, kind="man", sc=1.0, lantern=False, gun=False):
-    parts = []
-    k = 1.0
-    coat = M["coat2"] if kind in ("woman", "maid") else M["coat"]
-    for sx in (-1, 1):
-        parts.append(cyl("leg", 0.07, 0.06, 0.5, (sx * 0.09, 0, 0.25), M["coat"]))
-    parts.append(cyl("body", 0.24, 0.19, 0.8, (0, 0, 0.82), coat))
-    parts.append(sph("sh", 0.21, (0, 0, 1.36), coat, (1.15, 0.75, 0.5)))
-    parts.append(cyl("neck", 0.05, 0.05, 0.1, (0, 0, 1.47), M["skin"]))
-    parts.append(sph("head", 0.11, (0, 0, 1.6), M["skin"], (0.9, 1.0, 1.1)))
-    parts.append(cyl("brim", 0.19, 0.19, 0.015, (0, 0, 1.69), M["coat"]))
-    parts.append(cyl("crown", 0.11, 0.10, 0.11, (0, 0, 1.75), M["coat"]))
-    parts.append(cyl("arm", 0.055, 0.045, 0.62, (-0.25, 0, 1.06), coat, rot=(0, -0.12, 0)))
-    parts.append(cyl("arm", 0.055, 0.045, 0.62, (0.25, -0.12, 1.12), coat, rot=(-0.5, 0.12, 0)))
-    if gun:
-        parts.append(cyl("gun", 0.018, 0.016, 1.1, (0.12, -0.25, 1.25), M["black"], rot=(1.1, 0, 0)))
-    root = link(bpy.data.objects.new("person", None))
-    if lantern:
-        parts.append(cyl("lantern", 0.06, 0.06, 0.16, (0.3, -0.35, 0.82), M["lampglow"]))
-        L = bpy.data.lights.new("lan", "POINT"); L.energy = 30; L.color = srgb("#ffa850"); L.shadow_soft_size = 0.04
-        lo = link(bpy.data.objects.new("lan", L)); lo.location = (0.3, -0.45, 0.85); parts.append(lo)
-    for o in parts: o.parent = root
-    root.location = (x, y, z); root.rotation_euler = (0, 0, face); root.scale = (sc, sc, sc)
-    return [root] + parts
+import figures
+def person(x, y, z, face=0.0, kind="man", sc=1.0, lantern=False, gun=False, **kw):
+    if figures._MATFN is None:
+        figures.setup(lambda n, c, r, b, bs: mat(n, c, r, bump=b, bs=bs))
+    root = figures.person(x, y, z, face, kind, sc, lantern, gun, **kw)
+    return list(root.children_recursive) + [root]
 
 # ================================================================ декорации
 def build_desk():
@@ -587,7 +569,7 @@ def build_attic():
     L.shadow_soft_size = 0.02
     lo = link(bpy.data.objects.new("amoon", L)); lo.location = (x0, Lh / 2 - 0.15, 1.75)
     lo.rotation_euler = (math.radians(-110), 0, 0); o.append(lo)
-    L = bpy.data.lights.new("afill", "AREA"); L.energy = 25; L.size = 4; L.color = srgb("#5a70a8")
+    L = bpy.data.lights.new("afill", "AREA"); L.energy = 90; L.size = 4; L.color = srgb("#5a70a8")
     lo = link(bpy.data.objects.new("afill", L)); lo.location = (x0, 0, 2.7); o.append(lo)
     for i in range(5):
         o.append(sph("hay", 0.8, (x0 + rnd.uniform(-1.2, 1.2), rnd.uniform(0, 4), 0.1), M["hay"], (1.2, 1.0, 0.45), seg=16))
@@ -685,10 +667,10 @@ def plate_defs(Z):
                               key=(V(KX - 1.0, 0.9, 2.2), HOT["money"], 40)),
         "kitchen_keys": dict(ev=0.8, g=["kitchen"], cam=V(KX + 0.35, 1.2, 1.45), tgt=HOT["keyhook"] + V(0, 0, -0.06), lens=55, f=2.8, focus=HOT["keyhook"],
                              key=(V(KX - 0.2, 1.3, 2.1), HOT["keyhook"], 25)),
-        "attic_empty": dict(ev=1.2, g=["attic"], cam=V(AX - 0.6, -4.0, 1.4), tgt=V(AX, 3.0, 1.2), lens=28, f=3.2, focus=V(AX, 1.0, 1.0)),
+        "attic_empty": dict(ev=1.4, key=(V(AX - 1.6, -2.6, 0.4), V(AX + 0.2, 1.5, 1.3), 90), g=["attic"], cam=V(AX - 0.6, -4.0, 1.4), tgt=V(AX, 3.0, 1.2), lens=28, f=3.2, focus=V(AX, 1.0, 1.0)),
         "attic_gruber": dict(ev=0.8, g=["attic"], cam=V(AX + 1.1, -3.9, 1.0), tgt=V(AX - 0.4, 1.0, 1.4), lens=28, f=3.2, focus=V(AX - 0.5, -0.5, 1.2),
                              people=[dict(x=AX - 0.5, y=-0.5, z=0.03, face=math.pi + 0.25, gun=True, lantern=True)], hatch=60),
-        "barn_in": dict(ev=1.2, g=["barn"], cam=V(BX - 2.6, 4.5, 1.7), tgt=V(BX + 1.2, -6, 1.2), lens=26, f=4.0, focus=V(BX + 1.2, -4, 1.0)),
+        "barn_in": dict(ev=1.4, key=(V(BX - 1.2, 2.5, 2.6), V(BX + 1.0, -4.0, 0.8), 260), g=["barn"], cam=V(BX - 2.6, 4.5, 1.7), tgt=V(BX + 1.2, -6, 1.2), lens=26, f=4.0, focus=V(BX + 1.2, -4, 1.0)),
     }
 
 def main():

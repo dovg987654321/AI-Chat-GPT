@@ -457,7 +457,7 @@ def s_calendar(t, T, sid, tt):
 
 @scene("maid_arrives")
 def s_maid_arrives(t, T, sid, tt):
-    v = kb("maid_arrives", t, T, (0.48, 0.52, 1.0), (0.42, 0.55, 1.35)); img = v.render()
+    v = kb("maid_arrives", t, T, (0.63, 0.5, 1.3), (0.72, 0.54, 1.65)); img = v.render()
     img = tag(img, "MARIA BAUMGARTNER, 44", t, 2.0, hold=T * 0.45)
     img = caption(img, ["Die neue Magd. Ihre Schwester bringt sie hin."], t, 3.0, cps=26, hold=7)
     img = caption(img, ["Die Schwester gehört zu den Letzten,", "die die Familie lebend sehen."], t, T * 0.55, cps=26)

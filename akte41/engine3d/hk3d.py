@@ -623,74 +623,12 @@ def _sph(name, r, loc, m, sc=(1, 1, 1)):
     for pg in o.data.polygons: pg.use_smooth = True
     return o
 
-def person(x, y, face=0.0, kind="man", sc=1.0, lantern=False, gun=False, case=False, arm_up=0.0, z=None, beard=False):
-    """Человек 1920-х без лица: пальто/юбка с фартуком, шляпа или платок. face — поворот (рад, 0 = лицом к -Y)."""
-    M_ = fig_mats()
-    if "skirt" not in M_:
-        M_["skirt"] = mat("skirt", srgb("#3a2522"), 0.9, bump=0.3, bump_scale=40)
-        M_["apron"] = mat("apron", srgb("#6e675a"), 0.9, bump=0.3, bump_scale=60)
-        M_["scarf"] = mat("scarf", srgb("#2c2830"), 0.9, bump=0.3, bump_scale=50)
-        M_["boot"] = mat("boot", srgb("#0e0d0d"), 0.5)
-        M_["trench"] = mat("trench", srgb("#4a4236"), 0.8, bump=0.3, bump_scale=30)
-        M_["hair"] = mat("hairf", srgb("#2a1e16"), 0.7)
-    root = link(bpy.data.objects.new("person", None))
-    P_ = []
-    child = kind in ("girl", "boy", "child")
-    k = (1.15 if kind != "boy" else 0.9) / 1.75 if child else 1.0
-    fem = kind in ("woman", "maid", "old_woman", "girl")
-    coat = {"investigator": M_["trench"], "woman": M_["coat2"], "maid": M_["coat2"], "old_woman": M_["coat"]}.get(kind, M_["coat"])
-    def C(n, r1, r2, h_, zc, m, xy=(0, 0), rot=(0, 0, 0), nv=20):
-        P_.append(_cyl(n, r1 * k, r2 * k, h_ * k, (xy[0] * k, xy[1] * k, zc * k), m, rot=rot, n=nv)); return P_[-1]
-    def Sp(n, r, loc, m, scl=(1, 1, 1)):
-        P_.append(_sph(n, r * k, (loc[0] * k, loc[1] * k, loc[2] * k), m, scl)); return P_[-1]
-    if fem:
-        C("skirt", 0.34, 0.17, 0.92, 0.5, M_["skirt"], nv=28)
-        C("bodice", 0.17, 0.19, 0.42, 1.15, coat)
-        ap = C("apron", 0.35, 0.175, 0.78, 0.5, M_["apron"], xy=(0, -0.02), nv=28)
-        ap.scale = (0.55, 1.0, 1.0)
-        Sp("shawl", 0.24, (0, 0, 1.33), M_["scarf"], (1.05, 0.8, 0.45))
-        for sx in (-1, 1): C("boot", 0.05, 0.05, 0.08, 0.04, M_["boot"], xy=(sx * 0.08, -0.05))
-    else:
-        for sx in (-1, 1):
-            C("leg", 0.075, 0.065, 0.55, 0.32, M_["coat"], xy=(sx * 0.1, 0))
-            C("boot", 0.075, 0.08, 0.14, 0.07, M_["boot"], xy=(sx * 0.1, -0.02))
-        ln = 1.0 if kind == "investigator" else 0.78
-        C("coat", 0.28, 0.21, ln, 1.38 - ln / 2, coat, nv=24)
-        Sp("shoulders", 0.22, (0, 0, 1.36), coat, (1.12, 0.72, 0.45))
-        C("collar", 0.11, 0.09, 0.08, 1.45, coat)
-    C("neck", 0.05, 0.05, 0.1, 1.47, M_["skin"])
-    head = Sp("head", 0.105, (0, 0, 1.6), M_["skin"], (0.88, 0.95, 1.12))
-    Sp("nose", 0.018, (0, -0.095, 1.6), M_["skin"], (0.8, 1.0, 1.4))
-    if fem:
-        Sp("kopftuch", 0.118, (0, 0.04, 1.635), M_["scarf"], (0.98, 0.95, 1.02))
-        Sp("knot", 0.035, (0, 0.11, 1.53), M_["scarf"])
-    elif kind != "boy":
-        C("brim", 0.18, 0.18, 0.012, 1.69, M_["coat"], nv=28)
-        C("crown", 0.105, 0.085, 0.12, 1.755, M_["coat"])
-        C("band", 0.107, 0.107, 0.025, 1.71, M_["boot"])
-    else:
-        Sp("hair", 0.11, (0, 0.01, 1.63), M_["hair"], (0.92, 1.0, 0.9))
-    if beard or kind == "old":
-        Sp("beard", 0.07, (0, -0.06, 1.52), M_["hair"], (1.1, 0.8, 1.1))
-    for sx in (-1, 1):
-        up = arm_up if sx > 0 else 0.0
-        C("arm", 0.06, 0.048, 0.62, 1.06, coat, xy=(sx * 0.255, 0), rot=(-up, sx * 0.1, 0))
-        Sp("hand", 0.042, (sx * 0.29, -0.02 - 0.5 * math.sin(up), 0.74 + 0.3 * (1 - math.cos(up))), M_["skin"])
-    if lantern:
-        P_.append(_cyl("lantern", 0.06, 0.055, 0.17, (0.3 * k, -0.06, 0.62 * k), M_["lamp"]))
-        P_.append(_cyl("lanterncap", 0.07, 0.02, 0.06, (0.3 * k, -0.06, 0.73 * k), M_["metal"]))
-        L = bpy.data.lights.new("lan", "POINT"); L.energy = 35; L.color = srgb("#ffa850"); L.shadow_soft_size = 0.05
-        lo = link(bpy.data.objects.new("lan", L)); lo.location = (0.3 * k, -0.16, 0.64 * k); P_.append(lo)
-    if gun:
-        P_.append(_cyl("gun", 0.018, 0.022, 1.15, (-0.2, -0.08, 1.15), M_["metal"], rot=(0.15, -0.25, 0)))
-    if case:
-        bpy.ops.mesh.primitive_cube_add(size=1, location=(-0.36 * k, -0.02, 0.55 * k))
-        c = bpy.context.active_object; c.scale = (0.1, 0.42, 0.3); c.data.materials.append(M_["boot"]); P_.append(c)
-    for o in P_: o.parent = root
-    root.location = (x, y, h(x, y) if z is None else z)
-    root.rotation_euler = (0, 0, face)
-    root.scale = (sc, sc, sc)
-    return root
+import figures
+def person(x, y, face=0.0, kind="man", sc=1.0, lantern=False, gun=False, case=False, arm_up=0.0, z=None, beard=False, **kw):
+    """Человек 1920-х с лицом (см. figures.py)."""
+    if figures._MATFN is None:
+        figures.setup(lambda n, c, r, b, bs: mat(n, c, r, bump=b, bump_scale=bs))
+    return figures.person(x, y, h(x, y) if z is None else z, face, kind, sc, lantern, gun, case, arm_up, beard, **kw)
 
 LINEUP = [("Andreas Gruber", dict(kind="man", beard=True)), ("Cäzilia Gruber", dict(kind="old_woman")),
           ("Viktoria Gabriel", dict(kind="woman")), ("Cäzilia, 7", dict(kind="girl")), ("Josef, 2", dict(kind="boy", sc=0.9)),
@@ -704,10 +642,10 @@ def render_lineup():
     S.render.resolution_x, S.render.resolution_y = 2400, 1350
     farm["sil"].location.x = -999
     X0, Y0 = -6.0, 10.5
-    pos = []
+    pos = []; roots = []
     for i, (n, kw) in enumerate(LINEUP):
         x = X0 + i * 1.05; y = Y0
-        person(x, y, face=-0.15, **kw); pos.append(Vector((x, y, h(x, y))))
+        r_ = person(x, y, face=-0.15, head=(0.03, 0.1), seed=i, **kw); pos.append(Vector((x, y, h(x, y)))); roots.append(r_)
     # мягкий ключевой свет «из фонаря» спереди-слева и холодный контур сзади
     for nm, e, c, loc, sz in [("key", 260, "#ffb070", (X0 + 1.5, Y0 - 5.0, 2.6), 3.0), ("rim", 420, "#8fa8ff", (X0 + 4, Y0 + 4.0, 3.2), 4.0)]:
         L = bpy.data.lights.new(nm, "AREA"); L.energy = e; L.size = sz; L.color = srgb(c)
@@ -723,6 +661,24 @@ def render_lineup():
         S.render.filepath = os.path.join(OUT, "plates", nm + ".png")
         bpy.ops.render.render(write_still=True)
         json.dump(meta, open(os.path.join(OUT, "plates", nm + ".json"), "w"))
+    # портреты крупно: по одному на персонажа
+    if "--portraits" in sys.argv:
+        S.render.resolution_x, S.render.resolution_y = 1000, 1250
+        pk = bpy.data.lights.new("pkey", "AREA"); pk.size = 0.9; pk.color = srgb("#ffc890"); pk.energy = 55
+        pko = link(bpy.data.objects.new("pkey", pk))
+        pr = bpy.data.lights.new("prim", "AREA"); pr.size = 0.8; pr.color = srgb("#9fb4ff"); pr.energy = 70
+        pro = link(bpy.data.objects.new("prim", pr))
+        for i, (p, r_) in enumerate(zip(pos, roots)):
+            hz = r_["head_z"]
+            t = p + Vector((0, 0, hz - 0.1 * (hz / 1.6)))
+            cam.location = p + Vector((0.3, -1.75 * max(hz / 1.6, 0.6), hz - 0.03)); tgt.location = t
+            cd.lens = 85; cd.dof.aperture_fstop = 2.8; foc.location = p + Vector((0, -0.1, hz))
+            pko.location = p + Vector((-0.9, -1.2, hz + 0.45)); pro.location = p + Vector((0.7, 0.9, hz + 0.35))
+            for lo in (pko, pro):
+                lo.rotation_euler = (t - lo.location).to_track_quat("-Z", "Y").to_euler()
+            bpy.context.view_layer.update()
+            S.render.filepath = os.path.join(OUT, "plates", "portrait_%d.png" % i)
+            bpy.ops.render.render(write_still=True)
 
 def build_marterl(x, y):
     """Marterl: деревянный столб с крестом и козырьком."""
@@ -751,7 +707,7 @@ def plate_defs(farm):
         "neighbors": dict(cam=Vector((hx - 9.0, fy - 6.5, gz + 1.6)), tgt=Vector((hx - 3.0, fy - 2.4, gz + 1.5)), lens=40, f=2.8,
                           focus=Vector((hx - 3.0, fy - 2.4, gz + 1.4)),
                           people=[dict(x=hx - 3.4, y=fy - 2.6, face=-1.9, kind="man"), dict(x=hx - 2.2, y=fy - 3.4, face=1.0, kind="old")]),
-        "maid_arrives": dict(cam=P(2.0, 1.6, 1.7), tgt=Vector((hx - 0.5, fy - 3, gz + 1.6)), lens=40, f=4.0, focus=G(9.0, 1.0),
+        "maid_arrives": dict(cam=P(3.5, -0.9, 1.65), tgt=(G(9.0, 1.3) + Vector((hx - 0.5, fy - 3, gz + 1.6))) / 2, lens=34, f=4.0, focus=G(9.0, 1.0),
                              people=[dict(x=G(9.0)[0] - 0.4, y=G(9.0)[1], face=math.pi - 0.3, kind="maid", case=True),
                                      dict(x=G(9.0)[0] + 0.5, y=G(9.0)[1] - 0.6, face=math.pi - 0.3, kind="woman")]),
         "days": dict(cam=Vector((-8.0, -1.0, h(-8, -1) + 2.0)), tgt=Vector((hx + 3, hy, gz + 2.0)), lens=38, f=5.6, focus=win),
