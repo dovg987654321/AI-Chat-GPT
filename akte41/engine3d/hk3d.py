@@ -630,16 +630,20 @@ def person(x, y, face=0.0, kind="man", sc=1.0, lantern=False, gun=False, case=Fa
         figures.setup(lambda n, c, r, b, bs: mat(n, c, r, bump=b, bump_scale=bs))
     return figures.person(x, y, h(x, y) if z is None else z, face, kind, sc, lantern, gun, case, arm_up, beard, **kw)
 
-LINEUP = [("Andreas Gruber", dict(kind="man", beard=True)), ("Cäzilia Gruber", dict(kind="old_woman")),
-          ("Viktoria Gabriel", dict(kind="woman")), ("Cäzilia, 7", dict(kind="girl")), ("Josef, 2", dict(kind="boy", sc=0.9)),
-          ("Maria Baumgartner", dict(kind="maid", case=True)), ("Lorenz Schlittenbauer", dict(kind="man", lantern=True)),
-          ("Ermittler", dict(kind="investigator"))]
+LINEUP = [("Andreas Gruber", dict(kind="old", beard=True, coat="jacket_br", eyes="br", build=1.05, stoop=0.04)),
+          ("Cäzilia Gruber", dict(kind="old_woman", eyes="bl", stoop=0.16, shawl="scarf3")),
+          ("Viktoria Gabriel", dict(kind="woman", eyes="bl", pose="fold")),
+          ("Cäzilia, 7", dict(kind="girl", eyes="bl", pose="fold")),
+          ("Josef, 2", dict(kind="boy", eyes="br")),
+          ("Maria Baumgartner", dict(kind="maid", case=True, eyes="gr", build=1.04)),
+          ("Lorenz Schlittenbauer", dict(kind="man", lantern=True, eyes="br", build=1.04, sc=1.03)),
+          ("Ermittler", dict(kind="investigator", eyes="gr", pose="behind", moustache=False))]
 
 def render_lineup():
     setup_render(); build_world()
     build_ground(); farm = build_farm(); build_trees(); build_fence()
     cam, cd, foc, tgt = build_camera()
-    S.render.resolution_x, S.render.resolution_y = 2400, 1350
+    S.render.resolution_x, S.render.resolution_y = (1200, 675) if "--quick" in sys.argv else (2400, 1350)
     farm["sil"].location.x = -999
     X0, Y0 = -6.0, 10.5
     pos = []; roots = []
@@ -653,8 +657,8 @@ def render_lineup():
         d = Vector((X0 + 3.7, Y0, 1.0)) - lo.location; lo.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
     mid = Vector((X0 + 3.7, Y0, h(X0 + 3.7, Y0) + 0.95))
     os.makedirs(os.path.join(OUT, "plates"), exist_ok=True)
-    for nm, cl, lens, f in [("lineup", Vector((X0 + 3.7, Y0 - 11.0, mid.z + 0.25)), 40, 5.6),
-                            ("lineup_low", Vector((X0 - 0.5, Y0 - 5.5, mid.z - 0.45)), 30, 2.8)]:
+    for nm, cl, lens, f in ([] if "--no-wide" in sys.argv else [("lineup", Vector((X0 + 3.7, Y0 - 11.0, mid.z + 0.25)), 40, 5.6),
+                            ("lineup_low", Vector((X0 - 0.5, Y0 - 5.5, mid.z - 0.45)), 30, 2.8)][:1 if "--quick" in sys.argv else 2]):
         cam.location = cl; tgt.location = mid; cd.lens = lens; cd.dof.aperture_fstop = f; foc.location = mid
         bpy.context.view_layer.update()
         meta = {"names": [[n, world_to_camera_view(S, cam, p).x, 1 - world_to_camera_view(S, cam, p).y] for (n, _), p in zip(LINEUP, pos)]}
@@ -663,7 +667,7 @@ def render_lineup():
         json.dump(meta, open(os.path.join(OUT, "plates", nm + ".json"), "w"))
     # портреты крупно: по одному на персонажа
     if "--portraits" in sys.argv:
-        S.render.resolution_x, S.render.resolution_y = 1000, 1250
+        S.render.resolution_x, S.render.resolution_y = (500, 625) if "--quick" in sys.argv else (1000, 1250)
         pk = bpy.data.lights.new("pkey", "AREA"); pk.size = 0.9; pk.color = srgb("#ffc890"); pk.energy = 55
         pko = link(bpy.data.objects.new("pkey", pk))
         pr = bpy.data.lights.new("prim", "AREA"); pr.size = 0.8; pr.color = srgb("#9fb4ff"); pr.energy = 70
