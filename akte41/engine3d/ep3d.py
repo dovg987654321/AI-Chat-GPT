@@ -692,10 +692,10 @@ def main():
     final = os.path.join(OUT, "final.mp4")
     flt = ("[1:a]loudnorm=I=-16:TP=-1.5:LRA=11,asplit[v][vv];[2:a]volume=0.11,highpass=f=30[m];"
            "[m][v]sidechaincompress=threshold=0.03:ratio=4:attack=20:release=400[md];"
-           "[vv][md]amix=inputs=2:normalize=0,alimiter=limit=0.95[a]")
+           "[vv][md]amix=inputs=2:normalize=0,alimiter=limit=0.95,apad[a]")
     subprocess.check_call(["ffmpeg", "-y", "-v", "error", "-i", vid, "-ss", f"{t0:.3f}", "-i", vpath, "-ss", f"{t0:.3f}", "-i", mpath,
                            "-filter_complex", flt, "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-                           "-shortest", "-movflags", "+faststart", final])
+                           "-t", f"{(f1 - f0) / FPS:.3f}", "-movflags", "+faststart", final])
     print("done", final, round(total, 1))
 
 if __name__ == "__main__":
