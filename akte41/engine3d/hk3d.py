@@ -778,6 +778,9 @@ def render_plates(names, res=(2400, 1350), samples=20):
         for e in extra:
             for c in list(e.children_recursive) + [e]:
                 bpy.data.objects.remove(c, do_unlink=True)
+        if d.get("memorial"):          # вернуть хутор для следующих планов
+            for o in farm_objs: o.hide_render = False
+            for o in [o for o in S.objects if o.name.startswith("m_")]: o.hide_render = True
 
 if __name__ == "__main__":
     if "--lineup" in args:

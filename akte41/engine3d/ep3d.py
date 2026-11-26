@@ -489,7 +489,7 @@ def s_house_dark(t, T, sid, tt):
 
 @scene("quiet")
 def s_quiet(t, T, sid, tt):
-    v = kb("farm_far", t, T, (0.5, 0.5, 1.2), (0.5, 0.5, 1.28)); img = darken(v.render(), 0.75)
+    v = kb("farm_far", t, T, (0.5, 0.5, 1.2), (0.5, 0.5, 1.28)); img = darken(v.render(), 0.12)   # пауза: почти темнота
     return img, dict(snow=0.6)
 
 @scene("days")
@@ -631,7 +631,7 @@ def s_ending(t, T, sid, tt):
 
 @scene("outro")
 def s_outro(t, T, sid, tt):
-    v = kb("farm_far", t, T, (0.5, 0.5, 1.1), (0.5, 0.5, 1.2)); img = darken(v.render(), 0.35)
+    v = kb("farm_far", t, T, (0.5, 0.5, 1.1), (0.5, 0.5, 1.2)); img = darken(v.render(), 0.2)
     d = ImageDraw.Draw(img, "RGBA")
     a = seg(t, 0.5, 1.3)
     if a > 0:
